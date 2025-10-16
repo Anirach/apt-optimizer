@@ -164,9 +164,53 @@ const Dashboard = () => {
                 <CardDescription>Patients waiting for available slots</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No patients on waitlist</p>
+                <div className="space-y-4">
+                  {[
+                    { id: 1, patient: "Tom Anderson", requestedDate: "Jan 16, 2024", type: "Cardiology", priority: "High", waitDays: 12 },
+                    { id: 2, patient: "Linda Martinez", requestedDate: "Jan 17, 2024", type: "Orthopedics", priority: "Medium", waitDays: 8 },
+                    { id: 3, patient: "Kevin Wong", requestedDate: "Jan 18, 2024", type: "General", priority: "Low", waitDays: 5 },
+                  ].map((patient) => (
+                    <div
+                      key={patient.id}
+                      className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                          <Users className="h-6 w-6 text-accent" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{patient.patient}</p>
+                          <p className="text-sm text-muted-foreground">{patient.type}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-medium text-foreground">Waiting {patient.waitDays} days</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <AlertCircle className={`h-3 w-3 ${
+                              patient.priority === 'High' ? 'text-destructive' :
+                              patient.priority === 'Medium' ? 'text-accent' :
+                              'text-primary'
+                            }`} />
+                            <span className={`text-xs ${
+                              patient.priority === 'High' ? 'text-destructive' :
+                              patient.priority === 'Medium' ? 'text-accent' :
+                              'text-primary'
+                            }`}>
+                              {patient.priority} priority
+                            </span>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/waitlist/${patient.id}?patient=${encodeURIComponent(patient.patient)}`)}
+                        >
+                          Details
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -179,9 +223,55 @@ const Dashboard = () => {
                 <CardDescription>Detailed metrics and trends</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-12">
-                  <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Advanced analytics coming soon</p>
+                <div className="space-y-6">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                      <p className="text-sm text-muted-foreground">Total Appointments</p>
+                      <p className="text-2xl font-bold text-foreground mt-1">1,247</p>
+                      <p className="text-xs text-primary mt-1">+8% from last week</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-accent/5 border border-accent/10">
+                      <p className="text-sm text-muted-foreground">Avg. Utilization</p>
+                      <p className="text-2xl font-bold text-foreground mt-1">87%</p>
+                      <p className="text-xs text-accent mt-1">+5% from last week</p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/10">
+                      <p className="text-sm text-muted-foreground">No-Shows</p>
+                      <p className="text-2xl font-bold text-foreground mt-1">154</p>
+                      <p className="text-xs text-destructive mt-1">-12% from last week</p>
+                    </div>
+                  </div>
+
+                  {/* Department Performance */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-3">Department Performance</h3>
+                    <div className="space-y-3">
+                      {[
+                        { dept: "Cardiology", appointments: 342, utilization: 92, noShow: 8 },
+                        { dept: "Orthopedics", appointments: 298, utilization: 88, noShow: 12 },
+                        { dept: "General", appointments: 607, utilization: 82, noShow: 15 },
+                      ].map((dept) => (
+                        <div key={dept.dept} className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-foreground">{dept.dept}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {dept.appointments} appointments • {dept.utilization}% utilization
+                              </p>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => navigate(`/analytics?dept=${dept.dept}`)}
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
