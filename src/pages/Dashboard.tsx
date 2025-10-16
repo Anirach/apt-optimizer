@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Calendar, Clock, Users, TrendingDown, Activity, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("week");
 
   // Mock data for KPIs
@@ -59,7 +61,11 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-foreground">Staff Dashboard</h1>
               <p className="text-sm text-muted-foreground">Monitor appointments and analytics</p>
             </div>
-            <Button variant="default" className="bg-primary hover:bg-primary/90">
+            <Button 
+              variant="default" 
+              className="bg-primary hover:bg-primary/90"
+              onClick={() => navigate("/calendar")}
+            >
               <Calendar className="mr-2 h-4 w-4" />
               View Full Calendar
             </Button>
