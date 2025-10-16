@@ -142,7 +142,11 @@ const Dashboard = () => {
                             </span>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/appointment/${apt.id}?patient=${encodeURIComponent(apt.patient)}`)}
+                        >
                           Details
                         </Button>
                       </div>
