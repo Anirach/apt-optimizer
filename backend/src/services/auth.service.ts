@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import db, { generateUUID, getCurrentDateTime } from '../db/index.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { signToken } from '../utils/jwt.js';
-
-const prisma = new PrismaClient();
 
 export interface LoginRequest {
   email: string;
@@ -20,9 +18,8 @@ export interface RegisterRequest {
 
 export class AuthService {
   async login(data: LoginRequest) {
-    const user = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
+    const stmt = db.prepare('SELECT * FROM User WHERE email = ?');
+    const user = stmt.get(data.email) as any;
 
     if (!user) {
       throw new Error('Invalid credentials');
@@ -54,26 +51,41 @@ export class AuthService {
   }
 
   async register(data: RegisterRequest) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
+    const checkStmt = db.prepare('SELECT id FROM User WHERE email = ?');
+    const existingUser = checkStmt.get(data.email);
 
     if (existingUser) {
       throw new Error('Email already registered');
     }
 
     const hashedPassword = await hashPassword(data.password);
+    const userId = generateUUID();
+    const now = getCurrentDateTime();
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        role: data.role || 'patient',
-      },
-    });
+    const insertStmt = db.prepare(`
+      INSERT INTO User (id, email, password, firstName, lastName, phone, role, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertStmt.run(
+      userId,
+      data.email,
+      hashedPassword,
+      data.firstName,
+      data.lastName,
+      data.phone,
+      data.role || 'patient',
+      now,
+      now
+    );
+
+    const user = {
+      id: userId,
+      email: data.email,
+      role: data.role || 'patient',
+      firstName: data.firstName,
+      lastName: data.lastName,
+    };
 
     const token = signToken({
       userId: user.id,
@@ -82,30 +94,19 @@ export class AuthService {
     });
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
+      user,
       token,
       expiresIn: 7 * 24 * 60 * 60,
     };
   }
 
   async getCurrentUser(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-      },
-    });
+    const stmt = db.prepare(`
+      SELECT id, email, role, firstName, lastName, phone
+      FROM User
+      WHERE id = ?
+    `);
+    const user = stmt.get(userId);
 
     if (!user) {
       throw new Error('User not found');

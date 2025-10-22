@@ -1,5 +1,10 @@
 import { createApp } from './app.js';
 import { config } from './config/env.js';
+import { initializeDatabase } from './db/index.js';
+
+// Initialize database schema
+console.log('🔧 Initializing database...');
+initializeDatabase();
 
 const app = createApp();
 
