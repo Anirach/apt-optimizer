@@ -3,6 +3,7 @@
  */
 
 import { apiClient, extractData } from './client';
+import { shouldUseMockApi, mockAnalyticsApi } from '@/lib/mock/api';
 import type {
   DashboardAnalyticsResponse,
   DetailedAnalyticsResponse,
@@ -20,11 +21,44 @@ export const analyticsApi = {
     startDate?: string;
     endDate?: string;
   }): Promise<DashboardAnalyticsResponse> {
-    const response = await apiClient.get<DashboardAnalyticsResponse>(
-      '/analytics/dashboard',
+    if (shouldUseMockApi()) {
+      return mockAnalyticsApi.getDashboardAnalytics();
+    }
+
+    // Backend returns a different structure, so we need to transform it
+    const response = await apiClient.get<{
+      kpis: DashboardAnalyticsResponse['kpis'];
+      todayAppointments: any[];
+      activeWaitlist: any[];
+    }>(
+      '/analytics/dashboard/realtime',
       params as Record<string, unknown>
     );
-    return extractData(response);
+    const data = extractData(response);
+
+    // Transform backend response to match frontend expectation
+    return {
+      kpis: data.kpis,
+      upcomingAppointments: (data.todayAppointments || []).map((apt: any) => ({
+        id: apt.id,
+        patientName: `${apt.patientFirstName || ''} ${apt.patientLastName || ''}`.trim() || 'Unknown',
+        time: new Date(apt.scheduledStart).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        type: apt.appointmentType || 'Consultation',
+        department: apt.departmentName || 'Unknown',
+        risk: apt.noShowRisk || 'low',
+      })),
+      waitlistSummary: {
+        total: data.activeWaitlist?.length || 0,
+        high: (data.activeWaitlist || []).filter((w: any) => w.priority === 'high' || w.priority === 'urgent').length,
+        medium: (data.activeWaitlist || []).filter((w: any) => w.priority === 'medium').length,
+        low: (data.activeWaitlist || []).filter((w: any) => w.priority === 'low').length,
+        averageWaitDays: 0, // Could calculate this if needed
+      },
+      recentActivity: [], // Could add this if backend provides it
+    };
   },
 
   /**

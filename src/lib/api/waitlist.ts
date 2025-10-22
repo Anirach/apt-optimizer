@@ -3,6 +3,7 @@
  */
 
 import { apiClient, extractData } from './client';
+import { shouldUseMockApi, mockWaitlistApi } from '@/lib/mock/api';
 import type {
   WaitlistEntry,
   CreateWaitlistEntryRequest,
@@ -24,6 +25,15 @@ export const waitlistApi = {
     page?: number;
     pageSize?: number;
   }): Promise<PaginatedResponse<WaitlistEntry>> {
+    if (shouldUseMockApi()) {
+      // Mock API returns flat array, wrap in pagination structure
+      const entries = await mockWaitlistApi.getWaitlist();
+      return {
+        data: entries,
+        success: true,
+        timestamp: new Date().toISOString(),
+      } as PaginatedResponse<WaitlistEntry>;
+    }
     return apiClient.get<WaitlistEntry[]>('/waitlist', params as Record<string, unknown>);
   },
 
