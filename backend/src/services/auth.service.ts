@@ -1,6 +1,7 @@
-import db, { generateUUID, getCurrentDateTime } from '../db/index.js';
+import dbInstance, { generateUUID, getCurrentDateTime } from '../db/index.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { signToken } from '../utils/jwt.js';
+import type Database from 'better-sqlite3';
 
 export interface LoginRequest {
   email: string;
@@ -17,8 +18,14 @@ export interface RegisterRequest {
 }
 
 export class AuthService {
+  private db: Database.Database;
+
+  constructor(db?: Database.Database) {
+    this.db = db || dbInstance;
+  }
+
   async login(data: LoginRequest) {
-    const stmt = db.prepare('SELECT * FROM User WHERE email = ?');
+    const stmt = this.db.prepare('SELECT * FROM User WHERE email = ?');
     const user = stmt.get(data.email) as any;
 
     if (!user) {
@@ -51,7 +58,7 @@ export class AuthService {
   }
 
   async register(data: RegisterRequest) {
-    const checkStmt = db.prepare('SELECT id FROM User WHERE email = ?');
+    const checkStmt = this.db.prepare('SELECT id FROM User WHERE email = ?');
     const existingUser = checkStmt.get(data.email);
 
     if (existingUser) {
@@ -62,7 +69,7 @@ export class AuthService {
     const userId = generateUUID();
     const now = getCurrentDateTime();
 
-    const insertStmt = db.prepare(`
+    const insertStmt = this.db.prepare(`
       INSERT INTO User (id, email, password, firstName, lastName, phone, role, createdAt, updatedAt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
@@ -101,7 +108,7 @@ export class AuthService {
   }
 
   async getCurrentUser(userId: string) {
-    const stmt = db.prepare(`
+    const stmt = this.db.prepare(`
       SELECT id, email, role, firstName, lastName, phone
       FROM User
       WHERE id = ?
