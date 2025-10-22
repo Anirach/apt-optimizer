@@ -1,56 +1,94 @@
-import { useState } from "react";
-import { Calendar, Clock, Users, TrendingDown, Activity, AlertCircle } from "lucide-react";
+import { Calendar, Clock, Users, TrendingDown, Activity, AlertCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { useDashboardAnalytics } from "@/hooks/useAnalytics";
+import { useWaitlist } from "@/hooks/useWaitlist";
+import type { NoShowRisk } from "@/types";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState("week");
 
-  // Mock data for KPIs
-  const kpis = [
+  // Fetch dashboard analytics
+  const { data: analytics, isLoading: analyticsLoading, error: analyticsError } = useDashboardAnalytics();
+
+  // Fetch active waitlist
+  const { data: waitlistData, isLoading: waitlistLoading, error: waitlistError } = useWaitlist({
+    status: 'active',
+    page: 1,
+    pageSize: 10,
+  });
+
+  // Transform KPI data from analytics
+  const kpis = analytics ? [
     {
       title: "No-Show Rate",
-      value: "12.3%",
-      change: "-23%",
-      trend: "down",
+      value: `${analytics.kpis.noShowRate}%`,
+      change: `${analytics.kpis.noShowRateChange}%`,
+      trend: analytics.kpis.noShowRateChange < 0 ? "down" : "up" as const,
       icon: TrendingDown,
       color: "text-primary"
     },
     {
       title: "Avg. Wait Time",
-      value: "4.2 days",
-      change: "-35%",
-      trend: "down",
+      value: `${analytics.kpis.averageWaitTime} days`,
+      change: `${analytics.kpis.averageWaitTimeChange}%`,
+      trend: analytics.kpis.averageWaitTimeChange < 0 ? "down" : "up" as const,
       icon: Clock,
       color: "text-primary"
     },
     {
       title: "Provider Utilization",
-      value: "87%",
-      change: "+18%",
-      trend: "up",
+      value: `${analytics.kpis.utilization}%`,
+      change: `+${analytics.kpis.utilizationChange}%`,
+      trend: "up" as const,
       icon: Activity,
       color: "text-accent"
     },
     {
       title: "Active Patients",
-      value: "1,247",
-      change: "+12%",
-      trend: "up",
+      value: analytics.kpis.activePatients.toLocaleString(),
+      change: `+${analytics.kpis.activePatientsChange}%`,
+      trend: "up" as const,
       icon: Users,
       color: "text-accent"
     }
-  ];
+  ] : [];
 
-  const upcomingAppointments = [
-    { id: 1, patient: "Sarah Chen", time: "09:00 AM", type: "Orthopedics", risk: "low" },
-    { id: 2, patient: "John Smith", time: "10:30 AM", type: "Cardiology", risk: "medium" },
-    { id: 3, patient: "Maria Garcia", time: "02:00 PM", type: "General", risk: "low" },
-    { id: 4, patient: "David Park", time: "03:30 PM", type: "Orthopedics", risk: "high" },
-  ];
+  const upcomingAppointments = analytics?.upcomingAppointments || [];
+
+  // Show loading state
+  if (analyticsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (analyticsError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-destructive">Error Loading Dashboard</CardTitle>
+            <CardDescription>Unable to fetch dashboard data</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              {analyticsError instanceof Error ? analyticsError.message : 'An unexpected error occurred'}
+            </p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,8 +99,8 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-foreground">Staff Dashboard</h1>
               <p className="text-sm text-muted-foreground">Monitor appointments and analytics</p>
             </div>
-            <Button 
-              variant="default" 
+            <Button
+              variant="default"
               className="bg-primary hover:bg-primary/90"
               onClick={() => navigate("/calendar")}
             >
@@ -87,7 +125,7 @@ const Dashboard = () => {
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
                 <p className={`text-xs ${kpi.trend === 'down' ? 'text-primary' : 'text-accent'}`}>
-                  {kpi.change} from last {timeRange}
+                  {kpi.change} from last week
                 </p>
               </CardContent>
             </Card>
@@ -110,48 +148,54 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {upcomingAppointments.map((apt) => (
-                    <div
-                      key={apt.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground">{apt.patient}</p>
-                          <p className="text-sm text-muted-foreground">{apt.type}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-medium text-foreground">{apt.time}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <AlertCircle className={`h-3 w-3 ${
-                              apt.risk === 'high' ? 'text-destructive' :
-                              apt.risk === 'medium' ? 'text-accent' :
-                              'text-primary'
-                            }`} />
-                            <span className={`text-xs ${
-                              apt.risk === 'high' ? 'text-destructive' :
-                              apt.risk === 'medium' ? 'text-accent' :
-                              'text-primary'
-                            }`}>
-                              {apt.risk} risk
-                            </span>
+                  {upcomingAppointments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No appointments scheduled for today</p>
+                    </div>
+                  ) : (
+                    upcomingAppointments.map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Users className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{apt.patientName}</p>
+                            <p className="text-sm text-muted-foreground">{apt.department}</p>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/appointment/${apt.id}?patient=${encodeURIComponent(apt.patient)}`)}
-                        >
-                          Details
-                        </Button>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-medium text-foreground">{apt.time}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <AlertCircle className={`h-3 w-3 ${
+                                apt.risk === 'high' ? 'text-destructive' :
+                                apt.risk === 'medium' ? 'text-accent' :
+                                'text-primary'
+                              }`} />
+                              <span className={`text-xs ${
+                                apt.risk === 'high' ? 'text-destructive' :
+                                apt.risk === 'medium' ? 'text-accent' :
+                                'text-primary'
+                              }`}>
+                                {apt.risk} risk
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/appointment/${apt.id}?patient=${encodeURIComponent(apt.patientName)}`)}
+                          >
+                            Details
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -164,54 +208,76 @@ const Dashboard = () => {
                 <CardDescription>Patients waiting for available slots</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { id: 1, patient: "Tom Anderson", requestedDate: "Jan 16, 2024", type: "Cardiology", priority: "High", waitDays: 12 },
-                    { id: 2, patient: "Linda Martinez", requestedDate: "Jan 17, 2024", type: "Orthopedics", priority: "Medium", waitDays: 8 },
-                    { id: 3, patient: "Kevin Wong", requestedDate: "Jan 18, 2024", type: "General", priority: "Low", waitDays: 5 },
-                  ].map((patient) => (
-                    <div
-                      key={patient.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                          <Users className="h-6 w-6 text-accent" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground">{patient.patient}</p>
-                          <p className="text-sm text-muted-foreground">{patient.type}</p>
-                        </div>
+                {waitlistLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : waitlistError ? (
+                  <div className="text-center py-8 text-destructive">
+                    <p>Error loading waitlist</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {!waitlistData?.data || waitlistData.data.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No patients on waitlist</p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-medium text-foreground">Waiting {patient.waitDays} days</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <AlertCircle className={`h-3 w-3 ${
-                              patient.priority === 'High' ? 'text-destructive' :
-                              patient.priority === 'Medium' ? 'text-accent' :
-                              'text-primary'
-                            }`} />
-                            <span className={`text-xs ${
-                              patient.priority === 'High' ? 'text-destructive' :
-                              patient.priority === 'Medium' ? 'text-accent' :
-                              'text-primary'
-                            }`}>
-                              {patient.priority} priority
-                            </span>
+                    ) : (
+                      waitlistData.data.map((entry) => {
+                        const patientName = entry.patient
+                          ? `${entry.patient.firstName} ${entry.patient.lastName}`
+                          : 'Unknown Patient';
+                        const departmentName = entry.department?.name || 'Unknown Department';
+                        const waitDays = Math.floor(
+                          (new Date().getTime() - new Date(entry.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                        );
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                                <Users className="h-6 w-6 text-accent" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-foreground">{patientName}</p>
+                                <p className="text-sm text-muted-foreground">{departmentName}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="font-medium text-foreground">Waiting {waitDays} days</p>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <AlertCircle className={`h-3 w-3 ${
+                                    entry.priority === 'high' || entry.priority === 'urgent' ? 'text-destructive' :
+                                    entry.priority === 'medium' ? 'text-accent' :
+                                    'text-primary'
+                                  }`} />
+                                  <span className={`text-xs capitalize ${
+                                    entry.priority === 'high' || entry.priority === 'urgent' ? 'text-destructive' :
+                                    entry.priority === 'medium' ? 'text-accent' :
+                                    'text-primary'
+                                  }`}>
+                                    {entry.priority} priority
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/waitlist/${entry.id}?patient=${encodeURIComponent(patientName)}`)}
+                              >
+                                Details
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/waitlist/${patient.id}?patient=${encodeURIComponent(patient.patient)}`)}
-                        >
-                          Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
