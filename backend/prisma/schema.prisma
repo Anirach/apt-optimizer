@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums (SQLite doesn't support enums, use strings with validation)
+enum Role {
+  admin
+  staff
+  provider
+  patient
+}
+
+enum Gender {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+enum AppointmentStatus {
+  scheduled
+  confirmed
+  checked_in
+  in_progress
+  completed
+  cancelled
+  no_show
+  rescheduled
+}
+
+enum NoShowRisk {
+  low
+  medium
+  high
+}
+
+enum WaitlistPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum WaitlistStatus {
+  active
+  contacted
+  converted
+  expired
+  cancelled
+}
+
+// ============================================================================
+// User & Authentication
+// ============================================================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   // Role enum as string
+  firstName String
+  lastName  String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider  Provider?
+  patient   Patient?
+}
+
+// ============================================================================
+// Patient
+// ============================================================================
+
+model Patient {
+  id              String    @id @default(uuid())
+  userId          String?   @unique
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  gender          String    // Gender enum
+  phone           String
+  email           String?
+  nationalId      String?
+  addressStreet   String?
+  addressDistrict String?
+  addressProvince String?
+  addressPostal   String?
+  addressCountry  String?
+  emergencyName   String?
+  emergencyRelation String?
+  emergencyPhone  String?
+  pdpaConsent     Boolean   @default(false)
+  pdpaConsentDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user          User?           @relation(fields: [userId], references: [id])
+  appointments  Appointment[]
+  waitlist      WaitlistEntry[]
+}
+
+// ============================================================================
+// Location
+// ============================================================================
+
+model Location {
+  id              String       @id @default(uuid())
+  name            String
+  building        String?
+  floor           String?
+  room            String?
+  addressStreet   String?
+  addressDistrict String?
+  addressProvince String
+  addressPostal   String
+  addressCountry  String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  departments   Department[]
+  timeSlots     TimeSlot[]
+  appointments  Appointment[]
+}
+
+// ============================================================================
+// Department
+// ============================================================================
+
+model Department {
+  id                          String       @id @default(uuid())
+  name                        String
+  code                        String       @unique
+  description                 String?
+  locationId                  String
+  defaultAppointmentDuration  Int          // minutes
+  isActive                    Boolean      @default(true)
+  createdAt                   DateTime     @default(now())
+  updatedAt                   DateTime     @updatedAt
+
+  location      Location        @relation(fields: [locationId], references: [id])
+  providers     Provider[]
+  appointments  Appointment[]
+  waitlist      WaitlistEntry[]
+  timeSlots     TimeSlot[]
+}
+
+// ============================================================================
+// Provider
+// ============================================================================
+
+model Provider {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  firstName     String
+  lastName      String
+  title         String
+  specialties   String       // JSON array as string
+  departments   String       // JSON array of department IDs
+  licenseNumber String       @unique
+  email         String
+  phone         String
+  bio           String?
+  photoUrl      String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id])
+  appointments  Appointment[]
+  timeSlots     TimeSlot[]
+  waitlist      WaitlistEntry[]
+}
+
+// ============================================================================
+// TimeSlot
+// ============================================================================
+
+model TimeSlot {
+  id                String    @id @default(uuid())
+  providerId        String
+  departmentId      String
+  locationId        String
+  startTime         DateTime
+  endTime           DateTime
+  duration          Int       // minutes
+  capacity          Int       @default(1)
+  isAvailable       Boolean   @default(true)
+  isRecurring       Boolean   @default(false)
+  recurringPattern  String?   // JSON object as string
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  provider      Provider      @relation(fields: [providerId], references: [id])
+  department    Department    @relation(fields: [departmentId], references: [id])
+  location      Location      @relation(fields: [locationId], references: [id])
+  appointments  Appointment[]
+}
+
+// ============================================================================
+// Appointment
+// ============================================================================
+
+model Appointment {
+  id                    String    @id @default(uuid())
+  confirmationCode      String    @unique
+  patientId             String
+  providerId            String
+  departmentId          String
+  timeSlotId            String
+  locationId            String
+  scheduledStart        DateTime
+  scheduledEnd          DateTime
+  actualStart           DateTime?
+  actualEnd             DateTime?
+  status                String    // AppointmentStatus enum
+  appointmentType       String
+  reason                String?
+  notes                 String?
+  providerNotes         String?
+  noShowRisk            String?   // NoShowRisk enum
+  noShowPredictionScore Float?
+  remindersSent         Int       @default(0)
+  lastReminderSent      DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  cancelledAt           DateTime?
+  cancellationReason    String?
+
+  patient     Patient    @relation(fields: [patientId], references: [id])
+  provider    Provider   @relation(fields: [providerId], references: [id])
+  department  Department @relation(fields: [departmentId], references: [id])
+  timeSlot    TimeSlot   @relation(fields: [timeSlotId], references: [id])
+  location    Location   @relation(fields: [locationId], references: [id])
+
+  @@index([patientId], map: "idx_appointment_patient")
+  @@index([providerId], map: "idx_appointment_provider")
+  @@index([departmentId], map: "idx_appointment_department")
+  @@index([scheduledStart], map: "idx_appointment_scheduled")
+  @@index([status], map: "idx_appointment_status")
+}
+
+// ============================================================================
+// Waitlist
+// ============================================================================
+
+model WaitlistEntry {
+  id                        String    @id @default(uuid())
+  patientId                 String
+  departmentId              String
+  providerId                String?
+  preferredDates            String?   // JSON array as string
+  preferredTimeOfDay        String?   // JSON array as string
+  priority                  String    // WaitlistPriority enum
+  medicalUrgency            String?
+  status                    String    // WaitlistStatus enum
+  requestedDate             DateTime
+  expiresAt                 DateTime?
+  notificationsSent         Int       @default(0)
+  lastNotificationSent      DateTime?
+  convertedToAppointmentId  String?
+  notes                     String?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  patient     Patient     @relation(fields: [patientId], references: [id])
+  department  Department  @relation(fields: [departmentId], references: [id])
+  provider    Provider?   @relation(fields: [providerId], references: [id])
+
+  @@index([patientId], map: "idx_waitlist_patient")
+  @@index([departmentId], map: "idx_waitlist_department")
+  @@index([status], map: "idx_waitlist_status")
+  @@index([priority], map: "idx_waitlist_priority")
+}
