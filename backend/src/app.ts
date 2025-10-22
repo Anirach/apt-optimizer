@@ -6,6 +6,10 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
+import appointmentsRoutes from './routes/appointments.routes.js';
+import slotsRoutes from './routes/slots.routes.js';
+import waitlistRoutes from './routes/waitlist.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 
 export function createApp() {
   const app = express();
@@ -28,10 +32,10 @@ export function createApp() {
 
   // API routes
   app.use('/api/auth', authRoutes);
-  // Add more routes as you build them
-  // app.use('/api/appointments', appointmentsRoutes);
-  // app.use('/api/waitlist', waitlistRoutes);
-  // etc.
+  app.use('/api/appointments', appointmentsRoutes);
+  app.use('/api/slots', slotsRoutes);
+  app.use('/api/waitlist', waitlistRoutes);
+  app.use('/api/analytics', analyticsRoutes);
 
   // 404 handler
   app.use((req, res) => {
